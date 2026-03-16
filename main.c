@@ -7,13 +7,20 @@ Vec3 playerPosition;
 
 void project_point(Vec3 p, Vec2 *out)
 {
-    if(p.z - playerPosition.z <= 0) p.z = 1 + playerPosition.z;
+    if(p.z - playerPosition.z <= 0) {
+        out->x = (int)-128;
+        out->y = (int)-128;
+        return;
+    }
 
     // gör multiplikation i long för att undvika varningsfel
-    long fx = ((long)p.x * 50) / (p.z - playerPosition.z);
-    long fy = ((long)p.y * 50) / (p.z - playerPosition.z);
+    long fx = ((long)(p.x - playerPosition.x)* 50) / (p.z - playerPosition.z);
+    long fy = ((long)(p.y - playerPosition.y) * 50) / (p.z - playerPosition.z);
 
-    //if (fx > 127 || fx < -127 || fy > 127 || fy < -127){
+    if (fx > 127 || fx < -127 || fy > 127 || fy < -127){
+        fx = -128;
+        fy = -128;
+    }
     
 
     out->x = (int)fx;
@@ -25,7 +32,7 @@ void MoveToScreenPosition(Vec2 p)
 {
     //Wait_Recal();
     Reset0Ref();
-    Moveto_d(p.x, p.y);
+    Moveto_d(p.y, p.x);
 }
 
 void CreateCubeAt(Vec3 cubePos, Vec3 *out)
@@ -47,6 +54,7 @@ int main(void)
     CreateCubeAt((Vec3){-10, 0, 30}, &cube[0][0]);
     CreateCubeAt((Vec3){-10, -10, 30}, &cube[1][0]);
     CreateCubeAt((Vec3){-10, 10, 30}, &cube[2][0]);
+    //CreateCubeAt((Vec3){-10, 10, 40}, &cube[3][0]);
 
 
     int edges[12][2] = {
@@ -71,8 +79,13 @@ int main(void)
             playerPosition.z ++;
         }
         if (Vec_Btn_State & 0b00000010){
-            //Print_Str_d( 50, -50, "BUTTON1");
             playerPosition.z --;
+        }
+        if (Vec_Btn_State & 0b00000100){
+            playerPosition.x ++;
+        }
+        if (Vec_Btn_State & 0b00001000){
+            playerPosition.x --;
         }
         
         // Projektera
@@ -87,10 +100,17 @@ int main(void)
             int currentPosy;
             int newPosx;
             int newPosy;
+            
 
             // Rita kuben
             for(int i=0;i<12;i++)
             {
+                if (pts[edges[i][0]].x == -128){
+                        continue;
+                }
+                if (pts[edges[i][1]].x == -128){
+                        continue;
+                }
                 if (i==0){
                     currentPosx = pts[edges[i][0]].x;
                     currentPosy = pts[edges[i][0]].y;
@@ -98,18 +118,21 @@ int main(void)
                 }
                 if (i==6){
                     currentPosx = pts[edges[i][0]].x;
+                    if (currentPosx == -128){
+                        continue;
+                    }
                     currentPosy = pts[edges[i][0]].y;
                     MoveToScreenPosition((Vec2){currentPosx, currentPosy});
                 }
                 newPosx = pts[edges[i][0]].x;
                 newPosy = pts[edges[i][0]].y;
-                Moveto_d(newPosx - currentPosx, newPosy - currentPosy);
+                Moveto_d(newPosy - currentPosy, newPosx - currentPosx);
                 currentPosx = newPosx;
                 currentPosy = newPosy;
 
                 int deltax = pts[edges[i][1]].x - pts[edges[i][0]].x;
                 int deltay = pts[edges[i][1]].y - pts[edges[i][0]].y;
-                Draw_Line_d(deltax, deltay);
+                Draw_Line_d(deltay, deltax);
                 currentPosx += deltax;
                 currentPosy += deltay;
             }
