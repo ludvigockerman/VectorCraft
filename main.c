@@ -1,7 +1,12 @@
 #include <vectrex.h>
+#include "LUT.h"
 
 typedef struct { int x,y,z; } Vec3;
 typedef struct { int x,y; } Vec2;
+
+int sensitivity = 10;
+
+//Vec3 blockPositions[30]; // 30 is the maximum amount of cubes that can be rendered at the same time.
 
 int edges[12][2] = {
     {0,1},{1,2},{2,3},{3,0},
@@ -10,20 +15,31 @@ int edges[12][2] = {
 };
 
 Vec3 playerPosition;
+Vec2 playerRotation;
 
 void project_point(Vec3 p, Vec2 *out)
 {
-    if(p.z - playerPosition.z <= 1) 
+    long angle = (long)((playerRotation.x + 128) & 0xFF);
+    
+    int sinv = sin_table[angle]; // value from -127 to 127
+    int cosv = sin_table[(angle + 64) & 0xFF]; // value from -127 to 127
+
+    long dz = (long)(p.z - playerPosition.z);
+    long dy = (long)(p.y - playerPosition.y);
+    long dx = (long)(p.x - playerPosition.x);
+
+    long rz = (long)(dx * sinv + dz * cosv) / 127;
+    long rx = (long)(dx * cosv - dz * sinv) / 127;
+    
+    if(rz <= 0) 
     {
         out->x = (int)-128;
         out->y = (int)-128;
         return;
     }
 
-    
-    // gör multiplikation i long för att undvika varningsfel
-    long fx = ((long)(p.x - playerPosition.x) * 50) / (p.z - playerPosition.z);
-    long fy = ((long)(p.y - playerPosition.y) * 50) / (p.z - playerPosition.z);
+    long fx = (rx * 50) / rz;
+    long fy = (dy * 50) / rz;
     
     if (fx > 127 || fx < -127 || fy > 127 || fy < -127){
         out->x = -128;
@@ -35,7 +51,6 @@ void project_point(Vec3 p, Vec2 *out)
     out->y = (int)fy;
 }
 
-// Flytta till punkt
 void MoveToScreenPosition(Vec2 p)
 {
     //Wait_Recal();
@@ -57,13 +72,9 @@ void DrawCube(Vec3 *cube)
     int newPosy;
     int drawnLines = 0;
     
-    // Rita kuben
     for(int i=0;i<12;i++)
     {
-        if (pts[edges[i][0]].x == -128){
-            continue;
-        }
-        if (pts[edges[i][1]].x == -128){
+        if (pts[edges[i][0]].x == -128 || pts[edges[i][1]].x == -128){
             continue;
         }
         if (drawnLines==0 || drawnLines==6){
@@ -81,6 +92,7 @@ void DrawCube(Vec3 *cube)
         int deltay = pts[edges[i][1]].y - pts[edges[i][0]].y;
         Draw_Line_d(deltay, deltax);
         drawnLines++;
+        
         currentPosx += deltax;
         currentPosy += deltay;
     }
@@ -104,10 +116,11 @@ int main(void)
     Vec3 cube[8]; // 8 points per cube
     
     playerPosition = (Vec3){ 0, 0, 0 };
-    
-    while(1)
-    {
+    playerRotation = (Vec2){ 0, 0 };
 
+    while(1)
+    {        
+        Wait_Recal();
         CreateCubeAt((Vec3){-10, 0, 30}, &cube[0]);
         DrawCube(&cube[0]);
         CreateCubeAt((Vec3){-10, -10, 30}, &cube[0]);
@@ -118,8 +131,6 @@ int main(void)
         DrawCube(&cube[0]);
         CreateCubeAt((Vec3){-10, 10, 20}, &cube[0]);
         DrawCube(&cube[0]);
-        
-        Wait_Recal();
         Intensity_a(0x5F);
         //Joy_Digital();
         Read_Btns();
@@ -131,10 +142,10 @@ int main(void)
             playerPosition.z --;
         }
         if (Vec_Btn_State & 0b00000100){
-            playerPosition.x ++;
+            playerRotation.x += sensitivity;
         }
         if (Vec_Btn_State & 0b00001000){
-            playerPosition.x --;
+            playerRotation.x -= sensitivity;
         }
     }
 }
