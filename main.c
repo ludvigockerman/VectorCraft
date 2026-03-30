@@ -66,7 +66,7 @@ int SearchThroughArray(vec2* list, int length, vec2 line) {
 void project_point(vec3 p, vec2* out) {
     // Rotation in x is called v and rotation in y is called u
     long anglev = (long)((playerrotation.x + 128) & 0xff);
-    long angleu = (long)((playerrotation.y + 128) & 0xff);
+    long angleu = (long)((playerrotation.y) & 0xff);
     
     int sinv = sin_table[anglev];
     int cosv = sin_table[(anglev + 64) & 0xff];
@@ -189,7 +189,7 @@ void createcubeat(vec3 cubepos) {
 
 int main(void) {
     playerposition = (vec3){ 0, 0, 0 };
-    playerrotation = (vec2){ 0, -128 };
+    playerrotation = (vec2){ 0, 0 };
 
     while(1) {
         Wait_Recal();
@@ -206,8 +206,8 @@ int main(void) {
 
         if (joystick_1_x() > 0) playerrotation.x += sensitivity;
         if (joystick_1_x() < 0) playerrotation.x -= sensitivity;
-        if (joystick_1_y() > 0) playerrotation.y += sensitivity;
-        if (joystick_1_y() < 0) playerrotation.y -= sensitivity;
+        if (joystick_1_y() > 0 && playerrotation.y < 64) playerrotation.y += sensitivity;
+        if (joystick_1_y() < 0 && playerrotation.y > -64) playerrotation.y -= sensitivity;
 
         if (Vec_Btn_State & 0b00000001) {
             long move_angle = (playerrotation.x + 128) & 0xff;
