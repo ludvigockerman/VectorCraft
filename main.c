@@ -43,12 +43,25 @@ bool tf[8][3] = {
     {false, true,  true }  
 };
 
+int world[3][3][3] = { // x, y, z
+    { {1, 0, 0}, {1, 0, 0}, {1, 0, 0} },
+    { {1, 0, 0}, {1, 0, 0}, {1, 0, 0} },
+    { {1, 0, 0}, {1, 0, 0}, {1, 0, 0} }
+};
+
+
+
 vec3 playerposition;
 vec2 playerrotation;
 long decimalx = 0;
 long decimalz = 0;
 int speed = 2;
 int sensitivity = 10;
+
+int sinv;
+int cosv;
+int sinu;
+int cosu;
 
 // ---------------------------------------------------------
 // Help functions
@@ -63,35 +76,40 @@ int SearchThroughArray(vec2* list, int length, vec2 line) {
     return 0;
 }
 
-void project_point(vec3 p, vec2* out) {
-    // Rotation in x is called v and rotation in y is called u
-    long anglev = (long)((playerrotation.x + 128) & 0xff);
-    long angleu = (long)((playerrotation.y) & 0xff);
-    
-    int sinv = sin_table[anglev];
-    int cosv = sin_table[(anglev + 64) & 0xff];
-    
-    int sinu = sin_table[angleu];
-    int cosu = sin_table[(angleu + 64) & 0xff];
-    
+void project_point(vec3 p, vec2* out) {    
     long dz = (long)(p.z - playerposition.z);
     long dy = (long)(p.y - playerposition.y);
     long dx = (long)(p.x - playerposition.x);
     
-    long r1z = (long)(dx * sinv + dz * cosv) / 127; // We divide by 127 because sinv and cosv both have a value from -127 to +127
-    long r1x = (long)(dx * cosv - dz * sinv) / 127;
+    if (dx >= 127 || dy >= 127 || dz >= 127 || dx <= -127 || dy <= -127 || dz <= -127){
+        out->x = -128;
+        out->y = -128;
+        return;
+    }
+    
+    long r1z = (long)(dx * sinv + dz * cosv) >> 7; // Bit shifting (same as dividing by 128)
+    long r1x = (long)(dx * cosv - dz * sinv) >> 7;
 
-    long r2y = (long)(dy * cosu - r1z * sinu) / 127;
-    long r2z = (long)(dy * sinu + r1z * cosu) / 127;
+    long r2y = (long)(dy * cosu - r1z * sinu) >> 7;
+    long r2z = (long)(dy * sinu + r1z * cosu) >> 7;
     
     if(r2z <= 0) {
         out->x = (int)-128;
         out->y = (int)-128;
         return;
     }
+
+    if (r1x >= 127 || r2y >= 127 || r2z >= 127 || r1x <= -127 || r2y <= -127 || r2z <= -127){
+        out->x = -128;
+        out->y = -128;
+        return;
+    }
     
-    long fx = (r1x * 50) / r2z;
-    long fy = (r2y * 50) / r2z;
+    //long fx = (r1x << 5) / r2z;
+    //long fy = (r2y << 5) / r2z;
+
+    long fx = (r1x) * recip_table[r2z] >> 3;
+    long fy = (r2y) * recip_table[r2z] >> 3;
     
     if (fx > 127 || fx < -127 || fy > 127 || fy < -127) {
         out->x = -128;
@@ -195,11 +213,39 @@ int main(void) {
         Wait_Recal();
         Intensity_a(0x5f);
 
-        createcubeat((vec3){-10, 0, 30});
-        createcubeat((vec3){-10, -10, 30});
-        createcubeat((vec3){-10, 10, 30});
-        createcubeat((vec3){-10, 10, 40});
-        createcubeat((vec3){-10, 10, 20});
+        // Rotation in x is called v and rotation in y is called u
+        long anglev = (long)((playerrotation.x + 128) & 0xff);
+        long angleu = (long)((playerrotation.y) & 0xff);
+        
+        sinv = sin_table[anglev];
+        cosv = sin_table[(anglev + 64) & 0xff];
+        
+        sinu = sin_table[angleu];
+        cosu = sin_table[(angleu + 64) & 0xff];
+
+        // I din main-loop:
+        for (int x = 0; x < 3; x++) {
+            for (int y = 0; y < 3; y++) {
+                for (int z = 0; z < 3; z++) {
+                    if (world[x][y][z] == 1) {
+                        // Vi multiplicerar index (0,1,2) med 10 
+                        // eftersom varje kub är 10 enheter stor
+                        vec3 pos;
+                        pos.x = x * 10;
+                        pos.y = y * 10;
+                        pos.z = (z * 10) + 30; // +30 så de inte hamnar "i" spelaren direkt
+                        
+                        createcubeat(pos);
+                    }
+                }
+            }
+        }
+
+        //createcubeat((vec3){-10, 0, 30});
+        //createcubeat((vec3){-10, -10, 30});
+        //createcubeat((vec3){-10, 10, 30});
+        //createcubeat((vec3){-10, 10, 40});
+        //createcubeat((vec3){-10, 10, 20});
 
         Read_Btns();
         check_joysticks();
