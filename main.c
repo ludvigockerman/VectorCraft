@@ -45,7 +45,7 @@ bool tf[8][3] = {
 
 int world[3][3][3] = { // x, y, z
     { {1, 0, 0}, {1, 0, 0}, {1, 0, 0} },
-    { {1, 0, 0}, {1, 0, 0}, {1, 0, 0} },
+    { {1, 0, 0}, {1, 1, 0}, {1, 0, 0} },
     { {1, 0, 0}, {1, 0, 0}, {1, 0, 0} }
 };
 
@@ -141,7 +141,7 @@ void drawcube(vec3* cube) {
     int newposy;
     int drawnlines = 0;
 
-    Reset0Ref();
+    //Reset0Ref();
 
     for(int i = 0; i < 12; i++) {
         vec2 p1 = pts[edges[i][0]];
@@ -151,7 +151,7 @@ void drawcube(vec3* cube) {
             continue;
         }
         
-        if (drawnlines == 0 || drawnlines == 6) {
+        if (drawnlines == 0) {
             currentposx = p1.x;
             currentposy = p1.y;
             Reset0Ref();
@@ -174,7 +174,7 @@ void drawcube(vec3* cube) {
     }
 }
 
-void createcubeat(vec3 cubepos) {
+void createcubeat(vec3 cubepos, int x, int y, int z) {
     vec3 out[8];
     out[0] = (vec3){ cubepos.x - 10, cubepos.y - 10, cubepos.z - 10 };
     out[1] = (vec3){ cubepos.x,      cubepos.y - 10, cubepos.z - 10 };
@@ -185,19 +185,49 @@ void createcubeat(vec3 cubepos) {
     out[6] = (vec3){ cubepos.x,      cubepos.y,      cubepos.z };
     out[7] = (vec3){ cubepos.x - 10, cubepos.y,      cubepos.z };
 
-    for (int i = 0; i < 8; i++) {
-        bool x = true;
-        bool y = true;
-        bool z = true;
+    /*for (int i = 0; i < 8; i++) {
+        bool xb = true;
+        bool yb = true;
+        bool zb = true;
         
-        if (playerposition.x >= out[i].x) x = false;
-        if (playerposition.y >= out[i].y) y = false;
-        if (playerposition.z >= out[i].z) z = false;
+        if (playerposition.x >= out[i].x) xb = false;
+        if (playerposition.y >= out[i].y) yb = false;
+        if (playerposition.z >= out[i].z) zb = false;
         
-        if (x == tf[i][0] && y == tf[i][1] && z == tf[i][2]) {
+        if (xb == tf[i][0] && yb == tf[i][1] && zb == tf[i][2]) {
             out[i] = (vec3){ -128, -128, -128 };
         }
-    }
+    }*/
+
+    // True means blocked or not visible
+    bool up   = ( (y < 2) && world[x][y+1][z] ) || (playerposition.y <= cubepos.y);
+    bool down = ( (y > 0) && world[x][y-1][z] ) || (playerposition.y >= cubepos.y - 10);
+    
+    bool left  = ( (x > 0) && world[x-1][y][z] ) || (playerposition.x >= cubepos.x - 10);
+    bool right = ( (x < 2) && world[x+1][y][z] ) || (playerposition.x <= cubepos.x);
+    
+    bool front = ( (z < 2) && world[x][y][z+1] ) || (playerposition.z <= cubepos.z);
+    bool back  = ( (z > 0) && world[x][y][z-1] ) || (playerposition.z >= cubepos.z - 10);
+    
+    //for (int i = 0; i < 8; i++) {
+        //if (out[i].x == -128) continue;
+        
+    if (back && down && left) out[0] = (vec3){ -128, -128, -128 };
+    
+    if (back && down && right) out[1] = (vec3){ -128, -128, -128 };
+    
+    if (back && up && right) out[2] = (vec3){ -128, -128, -128 };
+    
+    if (back && up && left) out[3] = (vec3){ -128, -128, -128 };
+    
+    if (front && down && left) out[4] = (vec3){ -128, -128, -128 };
+
+    if (front && down && right) out[5] = (vec3){ -128, -128, -128 };
+    
+    if (front && up && right) out[6] = (vec3){ -128, -128, -128 };
+    
+    if (front && up && left) out[7] = (vec3){ -128, -128, -128 };
+
     drawcube(&out[0]);
 }
 
@@ -222,20 +252,17 @@ int main(void) {
         
         sinu = sin_table[angleu];
         cosu = sin_table[(angleu + 64) & 0xff];
-
-        // I din main-loop:
+        
         for (int x = 0; x < 3; x++) {
             for (int y = 0; y < 3; y++) {
                 for (int z = 0; z < 3; z++) {
                     if (world[x][y][z] == 1) {
-                        // Vi multiplicerar index (0,1,2) med 10 
-                        // eftersom varje kub är 10 enheter stor
                         vec3 pos;
                         pos.x = x * 10;
                         pos.y = y * 10;
-                        pos.z = (z * 10) + 30; // +30 så de inte hamnar "i" spelaren direkt
+                        pos.z = (z * 10) + 30;
                         
-                        createcubeat(pos);
+                        createcubeat(pos, x, y, z);
                     }
                 }
             }
