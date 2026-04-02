@@ -17,21 +17,7 @@ typedef struct {
     int z;
 } vec3;
 
-const int edges[12][2] = {
-    {0, 1},
-    {1, 2},
-    {2, 3},
-    {3, 0},
-    {4, 5},
-    {5, 6},
-    {6, 7},
-    {7, 4},
-    {0, 4},
-    {1, 5},
-    {2, 6},
-    {3, 7}
-};
-
+/*
 bool tf[8][3] = {
     {false, false, false},
     {true,  false, false},
@@ -41,7 +27,7 @@ bool tf[8][3] = {
     {true,  false, true },
     {true,  true,  true },
     {false, true,  true }  
-};
+};*/
 
 int world[3][3][3] = { // x, y, z
     { {1, 0, 0}, {1, 0, 0}, {1, 0, 0} },
@@ -74,6 +60,18 @@ int SearchThroughArray(vec2* list, int length, vec2 line) {
         }
     }
     return 0;
+}
+
+void UpdateDirections(){
+    // Rotation in x is called v and rotation in y is called u
+    unsigned char anglev = (unsigned char)(playerrotation.x + 128);
+    unsigned char angleu = (unsigned char)(playerrotation.y);
+    
+    sinv = sin_table[anglev];
+    cosv = sin_table[(anglev + 64)];
+    
+    sinu = sin_table[angleu];
+    cosu = sin_table[(angleu + 64)];
 }
 
 void project_point(vec3 p, vec2* out) {    
@@ -125,7 +123,7 @@ void project_point(vec3 p, vec2* out) {
 // Drawing functions
 // ---------------------------------------------------------
 
-void drawcube(vec3* cube) {
+void drawcube(vec3* cube, int edges[12][2]) {
     vec2 pts[8];
     for(int i = 0; i < 8; i++) {
         if (cube[i].x == -128) {
@@ -144,6 +142,7 @@ void drawcube(vec3* cube) {
     //Reset0Ref();
 
     for(int i = 0; i < 12; i++) {
+        if (edges[i][0] == -1) continue;
         vec2 p1 = pts[edges[i][0]];
         vec2 p2 = pts[edges[i][1]];
         
@@ -200,14 +199,34 @@ void createcubeat(vec3 cubepos, int x, int y, int z) {
     }*/
 
     // True means blocked or not visible
-    bool up   = ( (y < 2) && world[x][y+1][z] ) || (playerposition.y <= cubepos.y);
-    bool down = ( (y > 0) && world[x][y-1][z] ) || (playerposition.y >= cubepos.y - 10);
+    bool upBlock   = ( (y < 2) && world[x][y+1][z] );
+    bool downBlock = ( (y > 0) && world[x][y-1][z] );
     
-    bool left  = ( (x > 0) && world[x-1][y][z] ) || (playerposition.x >= cubepos.x - 10);
-    bool right = ( (x < 2) && world[x+1][y][z] ) || (playerposition.x <= cubepos.x);
+    bool leftBlock  = ( (x > 0) && world[x-1][y][z] );
+    bool rightBlock = ( (x < 2) && world[x+1][y][z] );
     
-    bool front = ( (z < 2) && world[x][y][z+1] ) || (playerposition.z <= cubepos.z);
-    bool back  = ( (z > 0) && world[x][y][z-1] ) || (playerposition.z >= cubepos.z - 10);
+    bool frontBlock = ( (z < 2) && world[x][y][z+1] );
+    bool backBlock  = ( (z > 0) && world[x][y][z-1] );
+
+
+    bool upInvis   = (playerposition.y <= cubepos.y);
+    bool downInvis = (playerposition.y >= cubepos.y - 10);
+    
+    bool leftInvis  = (playerposition.x >= cubepos.x - 10);
+    bool rightInvis = (playerposition.x <= cubepos.x);
+    
+    bool frontInvis = (playerposition.z <= cubepos.z);
+    bool backInvis  = (playerposition.z >= cubepos.z - 10);
+
+
+    bool up   = (upBlock || upInvis);
+    bool down = (downBlock || downInvis);
+    
+    bool left = (leftBlock || leftInvis);
+    bool right = (rightBlock || rightInvis);
+    
+    bool front = (frontBlock || frontInvis);
+    bool back = (backBlock || backInvis);
     
     //for (int i = 0; i < 8; i++) {
         //if (out[i].x == -128) continue;
@@ -227,8 +246,46 @@ void createcubeat(vec3 cubepos, int x, int y, int z) {
     if (front && up && right) out[6] = (vec3){ -128, -128, -128 };
     
     if (front && up && left) out[7] = (vec3){ -128, -128, -128 };
+    
 
-    drawcube(&out[0]);
+    int edges[12][2] = {
+        {0, 1},
+        {1, 2},
+        {2, 3},
+        {3, 0},
+        {4, 5},
+        {5, 6},
+        {6, 7},
+        {7, 4},
+        {0, 4},
+        {1, 5},
+        {2, 6},
+        {3, 7}
+    };
+    
+   
+    if(backBlock){
+        edges[0][0] = -1; edges[0][1] = -1;
+        edges[1][0] = -1; edges[1][1] = -1;
+        edges[2][0] = -1; edges[2][1] = -1;
+        edges[3][0] = -1; edges[3][1] = -1;
+    }
+    
+    if(frontBlock){
+        edges[4][0] = -1; edges[4][1] = -1;
+        edges[5][0] = -1; edges[5][1] = -1;
+        edges[6][0] = -1; edges[6][1] = -1;
+        edges[7][0] = -1; edges[7][1] = -1;
+    }
+
+    /*if( downBlock ){
+        edges[0][0] = -1; edges[0][1] = -1;
+        edges[4][0] = -1; edges[4][1] = -1;
+        edges[8][0] = -1; edges[8][1] = -1;
+        edges[9][0] = -1; edges[9][1] = -1;
+    }*/
+
+    drawcube(&out[0], edges);
 }
 
 // ---------------------------------------------------------
@@ -238,20 +295,11 @@ void createcubeat(vec3 cubepos, int x, int y, int z) {
 int main(void) {
     playerposition = (vec3){ 0, 0, 0 };
     playerrotation = (vec2){ 0, 0 };
+    UpdateDirections();
 
     while(1) {
         Wait_Recal();
         Intensity_a(0x5f);
-
-        // Rotation in x is called v and rotation in y is called u
-        long anglev = (long)((playerrotation.x + 128) & 0xff);
-        long angleu = (long)((playerrotation.y) & 0xff);
-        
-        sinv = sin_table[anglev];
-        cosv = sin_table[(anglev + 64) & 0xff];
-        
-        sinu = sin_table[angleu];
-        cosu = sin_table[(angleu + 64) & 0xff];
         
         for (int x = 0; x < 3; x++) {
             for (int y = 0; y < 3; y++) {
@@ -277,26 +325,40 @@ int main(void) {
         Read_Btns();
         check_joysticks();
 
-        if (joystick_1_x() > 0) playerrotation.x += sensitivity;
-        if (joystick_1_x() < 0) playerrotation.x -= sensitivity;
-        if (joystick_1_y() > 0 && playerrotation.y < 64) playerrotation.y += sensitivity;
-        if (joystick_1_y() < 0 && playerrotation.y > -64) playerrotation.y -= sensitivity;
+        if (joystick_1_x() > 0) { playerrotation.x += sensitivity; UpdateDirections(); }
+        if (joystick_1_x() < 0) { playerrotation.x -= sensitivity; UpdateDirections(); }
+        if (joystick_1_y() > 0 && playerrotation.y < 64) { playerrotation.y += sensitivity; UpdateDirections(); }
+        if (joystick_1_y() < 0 && playerrotation.y > -64) { playerrotation.y -= sensitivity; UpdateDirections(); }
 
         if (Vec_Btn_State & 0b00000001) {
             long move_angle = (playerrotation.x + 128) & 0xff;
-            long s = (long)sin_table[move_angle];
-            long c = (long)sin_table[(move_angle + 64) & 0xff];
+            int s = sin_table[move_angle];
+            int c = sin_table[(move_angle + 64) & 0xff];
             
-            decimalx += (speed * s);
-            decimalz += (speed * c);
+            decimalx += ((long)speed * s);
+            decimalz += ((long)speed * c);
+            
+            while (decimalx > 127)  { decimalx -= 127; playerposition.x += 1; }
+            while (decimalz > 127)  { decimalz -= 127; playerposition.z += 1; }
+            while (decimalx < -127) { decimalx += 127; playerposition.x -= 1; }
+            while (decimalz < -127) { decimalz += 127; playerposition.z -= 1; }
+            
+        }
+
+        if (Vec_Btn_State & 0b00000010) 
+        {
+            long move_angle = (playerrotation.x + 128) & 0xff;
+            int s = sin_table[move_angle];
+            int c = sin_table[(move_angle + 64) & 0xff];
+            
+            decimalx -= ((long)speed * s);
+            decimalz -= ((long)speed * c);
             
             while (decimalx > 127)  { decimalx -= 127; playerposition.x += 1; }
             while (decimalz > 127)  { decimalz -= 127; playerposition.z += 1; }
             while (decimalx < -127) { decimalx += 127; playerposition.x -= 1; }
             while (decimalz < -127) { decimalz += 127; playerposition.z -= 1; }
         }
-
-        if (Vec_Btn_State & 0b00000010) { /* Button 2 */ }
         if (Vec_Btn_State & 0b00000100) { /* Button 3 */ }
         if (Vec_Btn_State & 0b00001000) { /* Button 4 */ }
     }
