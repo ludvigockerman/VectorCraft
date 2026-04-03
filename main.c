@@ -1,6 +1,5 @@
 #include <vectrex.h>
 #include "LUT.h"
-#include "controller.h"
 
 #define bool int
 #define true 1
@@ -17,17 +16,6 @@ typedef struct {
     int z;
 } vec3;
 
-/*
-bool tf[8][3] = {
-    {false, false, false},
-    {true,  false, false},
-    {true,  true,  false},
-    {false, true,  false},
-    {false, false, true },
-    {true,  false, true },
-    {true,  true,  true },
-    {false, true,  true }  
-};*/
 
 int world[3][3][3] = { // x, y, z
     { {1, 0, 0}, {1, 0, 0}, {1, 0, 0} },
@@ -88,8 +76,8 @@ void project_point(vec3 p, vec2* out) {
     long r1z = (long)(dx * sinv + dz * cosv) >> 7; // Bit shifting (same as dividing by 128)
     long r1x = (long)(dx * cosv - dz * sinv) >> 7;
 
-    long r2y = (long)(dy * cosu - r1z * sinu) >> 7;
-    long r2z = (long)(dy * sinu + r1z * cosu) >> 7;
+    long r2y = (long)((long)dy * cosu - r1z * sinu) >> 7;
+    long r2z = (long)((long)dy * sinu + r1z * cosu) >> 7;
     
     if(r2z <= 0) {
         out->x = (int)-128;
@@ -102,9 +90,6 @@ void project_point(vec3 p, vec2* out) {
         out->y = -128;
         return;
     }
-    
-    //long fx = (r1x << 5) / r2z;
-    //long fy = (r2y << 5) / r2z;
 
     long fx = (r1x) * recip_table[r2z] >> 3;
     long fy = (r2y) * recip_table[r2z] >> 3;
@@ -138,30 +123,24 @@ void drawcube(vec3* cube, int edges[12][2]) {
     int newposx;
     int newposy;
     int drawnlines = 0;
-
-    //Reset0Ref();
+    currentposx = 0;
+    currentposy = 0;
+    Reset0Ref();
+    Moveto_d(currentposy, currentposx);
 
     for(int i = 0; i < 12; i++) {
         if (edges[i][0] == -1) continue;
+        
         vec2 p1 = pts[edges[i][0]];
         vec2 p2 = pts[edges[i][1]];
         
-        if (p1.x == -128 || p2.x == -128) {
-            continue;
-        }
-        
-        if (drawnlines == 0) {
-            currentposx = p1.x;
-            currentposy = p1.y;
-            Reset0Ref();
-            Moveto_d(currentposy, currentposx);
-        } else {
-            newposx = p1.x;
-            newposy = p1.y;
-            Moveto_d(newposy - currentposy, newposx - currentposx);
-            currentposx = newposx;
-            currentposy = newposy;
-        }
+        if (p1.x == -128 || p2.x == -128) continue;
+            
+        newposx = p1.x;
+        newposy = p1.y;
+        Moveto_d(newposy - currentposy, newposx - currentposx);
+        currentposx = newposx;
+        currentposy = newposy;
         
         int deltax = p2.x - p1.x;
         int deltay = p2.y - p1.y;
@@ -184,19 +163,6 @@ void createcubeat(vec3 cubepos, int x, int y, int z) {
     out[6] = (vec3){ cubepos.x,      cubepos.y,      cubepos.z };
     out[7] = (vec3){ cubepos.x - 10, cubepos.y,      cubepos.z };
 
-    /*for (int i = 0; i < 8; i++) {
-        bool xb = true;
-        bool yb = true;
-        bool zb = true;
-        
-        if (playerposition.x >= out[i].x) xb = false;
-        if (playerposition.y >= out[i].y) yb = false;
-        if (playerposition.z >= out[i].z) zb = false;
-        
-        if (xb == tf[i][0] && yb == tf[i][1] && zb == tf[i][2]) {
-            out[i] = (vec3){ -128, -128, -128 };
-        }
-    }*/
 
     // True means blocked or not visible
     bool upBlock   = ( (y < 2) && world[x][y+1][z] );
@@ -228,7 +194,6 @@ void createcubeat(vec3 cubepos, int x, int y, int z) {
     bool front = (frontBlock || frontInvis);
     bool back = (backBlock || backInvis);
     
-    //for (int i = 0; i < 8; i++) {
         //if (out[i].x == -128) continue;
         
     if (back && down && left) out[0] = (vec3){ -128, -128, -128 };
@@ -278,12 +243,12 @@ void createcubeat(vec3 cubepos, int x, int y, int z) {
         edges[7][0] = -1; edges[7][1] = -1;
     }
 
-    /*if( downBlock ){
+    if( downBlock ){
         edges[0][0] = -1; edges[0][1] = -1;
         edges[4][0] = -1; edges[4][1] = -1;
         edges[8][0] = -1; edges[8][1] = -1;
         edges[9][0] = -1; edges[9][1] = -1;
-    }*/
+    }
 
     drawcube(&out[0], edges);
 }
@@ -323,12 +288,12 @@ int main(void) {
         //createcubeat((vec3){-10, 10, 20});
 
         Read_Btns();
-        check_joysticks();
+        Joy_Digital();
 
-        if (joystick_1_x() > 0) { playerrotation.x += sensitivity; UpdateDirections(); }
-        if (joystick_1_x() < 0) { playerrotation.x -= sensitivity; UpdateDirections(); }
-        if (joystick_1_y() > 0 && playerrotation.y < 64) { playerrotation.y += sensitivity; UpdateDirections(); }
-        if (joystick_1_y() < 0 && playerrotation.y > -64) { playerrotation.y -= sensitivity; UpdateDirections(); }
+        if (Vec_Joy_1_X > 0) { playerrotation.x += Vec_Joy_1_X >> 3; UpdateDirections(); }
+        if (Vec_Joy_1_X < 0) { playerrotation.x += Vec_Joy_1_X >> 3; UpdateDirections(); }
+        if (Vec_Joy_1_Y > 0 && playerrotation.y < 64) { playerrotation.y += Vec_Joy_1_Y >> 3; UpdateDirections(); }
+        if (Vec_Joy_1_Y < 0 && playerrotation.y > -64) { playerrotation.y += Vec_Joy_1_Y >> 3; UpdateDirections(); }
 
         if (Vec_Btn_State & 0b00000001) {
             long move_angle = (playerrotation.x + 128) & 0xff;
@@ -359,8 +324,8 @@ int main(void) {
             while (decimalx < -127) { decimalx += 127; playerposition.x -= 1; }
             while (decimalz < -127) { decimalz += 127; playerposition.z -= 1; }
         }
-        if (Vec_Btn_State & 0b00000100) { /* Button 3 */ }
-        if (Vec_Btn_State & 0b00001000) { /* Button 4 */ }
+        //if (Vec_Btn_State & 0b00000100) { /* Button 3 */ }
+        //if (Vec_Btn_State & 0b00001000) { /* Button 4 */ }
     }
     
     return 0;
