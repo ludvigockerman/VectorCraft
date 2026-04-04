@@ -16,13 +16,11 @@ typedef struct {
     int z;
 } vec3;
 
-
 int world[3][3][3] = { // x, y, z
     { {1, 0, 0}, {1, 0, 0}, {1, 0, 0} },
     { {1, 0, 0}, {1, 1, 0}, {1, 0, 0} },
     { {1, 0, 0}, {1, 0, 0}, {1, 0, 0} }
 };
-
 
 
 vec3 playerposition;
@@ -62,6 +60,20 @@ void UpdateDirections(){
     cosu = sin_table[(angleu + 64)];
 }
 
+void MovePlayer(int dist, unsigned char move_angle){
+    //long move_angle = (playerrotation.x + 128) & 0xff;
+    int s = sin_table[move_angle];
+    int c = sin_table[(move_angle + 64)];
+    
+    decimalx += ((long)dist * speed * s);
+    decimalz += ((long)dist * speed * c);
+    
+    while (decimalx > 127)  { decimalx -= 127; playerposition.x += 1; }
+    while (decimalz > 127)  { decimalz -= 127; playerposition.z += 1; }
+    while (decimalx < -127) { decimalx += 127; playerposition.x -= 1; }
+    while (decimalz < -127) { decimalz += 127; playerposition.z -= 1; }
+}
+
 void project_point(vec3 p, vec2* out) {    
     long dz = (long)(p.z - playerposition.z);
     long dy = (long)(p.y - playerposition.y);
@@ -73,7 +85,7 @@ void project_point(vec3 p, vec2* out) {
         return;
     }
     
-    long r1z = (long)(dx * sinv + dz * cosv) >> 7; // Bit shifting (same as dividing by 128)
+    long r1z = (long)(dx * sinv + dz * cosv) >> 7; // Bit shifting >> 7 (same as dividing by 128)
     long r1x = (long)(dx * cosv - dz * sinv) >> 7;
 
     long r2y = (long)((long)dy * cosu - r1z * sinu) >> 7;
@@ -122,11 +134,10 @@ void drawcube(vec3* cube, int edges[12][2]) {
     int currentposy;
     int newposx;
     int newposy;
-    int drawnlines = 0;
     currentposx = 0;
     currentposy = 0;
     Reset0Ref();
-    Moveto_d(currentposy, currentposx);
+    //Moveto_d(currentposy, currentposx);
 
     for(int i = 0; i < 12; i++) {
         if (edges[i][0] == -1) continue;
@@ -138,14 +149,19 @@ void drawcube(vec3* cube, int edges[12][2]) {
             
         newposx = p1.x;
         newposy = p1.y;
-        Moveto_d(newposy - currentposy, newposx - currentposx);
-        currentposx = newposx;
-        currentposy = newposy;
+        
+        int move_dy = newposy - currentposy;
+        int move_dx = newposx - currentposx;
+        
+        if(move_dx != 0 || move_dy != 0){
+            Moveto_d(move_dy, move_dx);
+            currentposx = newposx;
+            currentposy = newposy;
+        }
         
         int deltax = p2.x - p1.x;
         int deltay = p2.y - p1.y;
         Draw_Line_d(deltay, deltax);
-        drawnlines++;
         
         currentposx += deltax;
         currentposy += deltay;
@@ -164,7 +180,7 @@ void createcubeat(vec3 cubepos, int x, int y, int z) {
     out[7] = (vec3){ cubepos.x - 10, cubepos.y,      cubepos.z };
 
 
-    // True means blocked or not visible
+    // True means a block
     bool upBlock   = ( (y < 2) && world[x][y+1][z] );
     bool downBlock = ( (y > 0) && world[x][y-1][z] );
     
@@ -174,7 +190,7 @@ void createcubeat(vec3 cubepos, int x, int y, int z) {
     bool frontBlock = ( (z < 2) && world[x][y][z+1] );
     bool backBlock  = ( (z > 0) && world[x][y][z-1] );
 
-
+    // True means not visible
     bool upInvis   = (playerposition.y <= cubepos.y);
     bool downInvis = (playerposition.y >= cubepos.y - 10);
     
@@ -194,7 +210,6 @@ void createcubeat(vec3 cubepos, int x, int y, int z) {
     bool front = (frontBlock || frontInvis);
     bool back = (backBlock || backInvis);
     
-        //if (out[i].x == -128) continue;
         
     if (back && down && left) out[0] = (vec3){ -128, -128, -128 };
     
@@ -252,6 +267,8 @@ void createcubeat(vec3 cubepos, int x, int y, int z) {
 
     drawcube(&out[0], edges);
 }
+    
+
 
 // ---------------------------------------------------------
 // Main
@@ -296,33 +313,14 @@ int main(void) {
         if (Vec_Joy_1_Y < 0 && playerrotation.y > -64) { playerrotation.y += Vec_Joy_1_Y >> 3; UpdateDirections(); }
 
         if (Vec_Btn_State & 0b00000001) {
-            long move_angle = (playerrotation.x + 128) & 0xff;
-            int s = sin_table[move_angle];
-            int c = sin_table[(move_angle + 64) & 0xff];
-            
-            decimalx += ((long)speed * s);
-            decimalz += ((long)speed * c);
-            
-            while (decimalx > 127)  { decimalx -= 127; playerposition.x += 1; }
-            while (decimalz > 127)  { decimalz -= 127; playerposition.z += 1; }
-            while (decimalx < -127) { decimalx += 127; playerposition.x -= 1; }
-            while (decimalz < -127) { decimalz += 127; playerposition.z -= 1; }
-            
+            unsigned char move_angle = (unsigned char)(playerrotation.x + 128);
+            MovePlayer(1, move_angle);
         }
 
         if (Vec_Btn_State & 0b00000010) 
         {
-            long move_angle = (playerrotation.x + 128) & 0xff;
-            int s = sin_table[move_angle];
-            int c = sin_table[(move_angle + 64) & 0xff];
-            
-            decimalx -= ((long)speed * s);
-            decimalz -= ((long)speed * c);
-            
-            while (decimalx > 127)  { decimalx -= 127; playerposition.x += 1; }
-            while (decimalz > 127)  { decimalz -= 127; playerposition.z += 1; }
-            while (decimalx < -127) { decimalx += 127; playerposition.x -= 1; }
-            while (decimalz < -127) { decimalz += 127; playerposition.z -= 1; }
+            unsigned char move_angle = (unsigned char)(playerrotation.x + 128);
+            MovePlayer(-1, move_angle);
         }
         //if (Vec_Btn_State & 0b00000100) { /* Button 3 */ }
         //if (Vec_Btn_State & 0b00001000) { /* Button 4 */ }
